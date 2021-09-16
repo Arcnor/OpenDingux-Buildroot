@@ -1,0 +1,62 @@
+name: OpenDingux_buildroot
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-20.04
+    container:
+      image: arcnor/retro-toolchains-buildroot
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'true'
+    - name: Blocked invisible-mirror.net workaround
+      run: echo "1.1.1.1 invisible-mirror.net" | tee -a /etc/hosts
+    - name: Cache downloads
+      id: cache-downloads
+      uses: actions/cache@v2
+      with:
+        path: buildroot/dl
+        key: downloads
+    - name: build config
+      run: make od_lepus_defconfig BR2_EXTERNAL=board/opendingux
+      working-directory: buildroot
+    - name: build
+      run: make sdk
+      working-directory: buildroot
+      env:
+        BR2_SDK_PREFIX: opendingux-buildroot
+        BR2_JLEVEL: 0
+        FORCE_UNSAFE_CONFIGURE: 1
+    - name: Create Dockerfile
+      run: export CROSS_TRIPLE=$(ls buildroot/output/host | grep ".*-.*-") && sed "s/%%CROSS_TRIPLE%%/${CROSS_TRIPLE}/g" Dockerfile.template > Dockerfile
+    - uses: actions/upload-artifact@v2
+      with:
+        name: buildroot
+        path: |
+          buildroot/output/images/*
+          Dockerfile
+  docker:
+    name: Create and push Docker image
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download result for build
+      uses: actions/download-artifact@v2
+      with:
+        name: buildroot
+    - name: Login to Docker registry
+      uses: docker/login-action@25c0ca8bab9893f0962d4ffd043f2b7ab90e9a3f
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        push: true
+        tags: ghcr.io/arcnor/toolchain-opendingux/lepus:latest
