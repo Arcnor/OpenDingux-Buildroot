@@ -7,8 +7,11 @@ jobs:
     name: Build
     runs-on: ubuntu-20.04
     container:
-      image: arcnor/retro-toolchains-buildroot
+      image: ghcr.io/arcnor/retro-toolchain/buildroot
 
+    strategy:
+      matrix:
+        target: ['lepus', 'gcw0', 'rs90']
     steps:
     - uses: actions/checkout@v2
       with:
@@ -22,20 +25,20 @@ jobs:
         path: buildroot/dl
         key: downloads
     - name: build config
-      run: make od_lepus_defconfig BR2_EXTERNAL=board/opendingux
+      run: make od_${{ matrix.target }}_defconfig BR2_EXTERNAL=board/opendingux
       working-directory: buildroot
     - name: build
       run: make sdk
       working-directory: buildroot
       env:
-        BR2_SDK_PREFIX: opendingux-buildroot
+        BR2_SDK_PREFIX: opendingux
         BR2_JLEVEL: 0
         FORCE_UNSAFE_CONFIGURE: 1
     - name: Create Dockerfile
       run: export CROSS_TRIPLE=$(ls buildroot/output/host | grep ".*-.*-") && sed "s/%%CROSS_TRIPLE%%/${CROSS_TRIPLE}/g" Dockerfile.template > Dockerfile
     - uses: actions/upload-artifact@v2
       with:
-        name: buildroot
+        name: buildroot-${{ matrix.target }}
         path: |
           buildroot/output/images/*
           Dockerfile
@@ -43,11 +46,14 @@ jobs:
     name: Create and push Docker image
     needs: build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: ['lepus', 'gcw0', 'rs90']
     steps:
     - name: Download result for build
       uses: actions/download-artifact@v2
       with:
-        name: buildroot
+        name: buildroot-${{ matrix.target }}
     - name: Login to Docker registry
       uses: docker/login-action@25c0ca8bab9893f0962d4ffd043f2b7ab90e9a3f
       with:
@@ -59,4 +65,4 @@ jobs:
       with:
         context: .
         push: true
-        tags: ghcr.io/arcnor/toolchain-opendingux/lepus:latest
+        tags: ghcr.io/arcnor/toolchain-opendingux/${{ matrix.target }}:latest

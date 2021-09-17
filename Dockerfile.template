@@ -1,8 +1,8 @@
-FROM arcnor/retro-toolchains-base
+FROM ghcr.io/arcnor/retro-toolchain/toolchain
 
-ADD buildroot/output/images/opendingux-*.tar.gz /opt/
+ADD buildroot/output/images/opendingux*.tar.gz /opt/
 
-RUN mv /opt/opendingux-* /opt/opendingux && cd /opt/opendingux && ./relocate-sdk.sh
+RUN cd /opt/opendingux && ./relocate-sdk.sh
 
 ENV CROSS_TRIPLE %%CROSS_TRIPLE%%
 
@@ -15,5 +15,7 @@ ENV PATH ${PATH}:${CROSS_ROOT}/bin:${SYSROOT}/usr/bin
 ENV ARCH arm
 
 ENV CROSS_COMPILE ${CROSS_TRIPLE}-
+
+ENV CMAKE_TOOLCHAIN_FILE ${CROSS_ROOT}/share/buildroot/toolchainfile.cmake
 
 WORKDIR /root
