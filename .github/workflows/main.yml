@@ -42,6 +42,39 @@ jobs:
         path: |
           buildroot/output/images/*
           Dockerfile
+
+  build-installer:
+    name: Build installer
+    runs-on: ubuntu-20.04
+    container:
+      image: ghcr.io/arcnor/retro-toolchain/buildroot
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'true'
+    - name: Blocked invisible-mirror.net workaround
+      run: echo "1.1.1.1 invisible-mirror.net" | tee -a /etc/hosts
+    - name: Cache downloads
+      id: cache-downloads
+      uses: actions/cache@v2
+      with:
+        path: buildroot/dl
+        key: downloads
+    - name: build
+      run: ./rebuild.sh
+      working-directory: buildroot
+      env:
+        CONFIG: installer
+        BR2_SDK_PREFIX: opendingux
+        BR2_JLEVEL: 0
+        FORCE_UNSAFE_CONFIGURE: 1
+    - uses: actions/upload-artifact@v2
+      with:
+        name: buildroot-installer
+        path: |
+          buildroot/output/installer/images/*
+
   docker:
     name: Create and push Docker image
     needs: build
